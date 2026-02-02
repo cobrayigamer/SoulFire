@@ -99,4 +99,9 @@ public final class DebounceNode extends AbstractScriptNode {
       }
     }
   }
+
+  /// Clear all debounce state (call on session end to prevent memory leaks)
+  public static void clearAll() {
+    lastExecutionTimes.clear();
+  }
 }

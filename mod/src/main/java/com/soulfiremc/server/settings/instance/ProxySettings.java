@@ -61,9 +61,20 @@ public final class ProxySettings implements SettingsObject {
       .namespace(NAMESPACE)
       .key("proxy-check-concurrency")
       .uiName("Proxy check concurrency")
-      .description("Amount of proxies to check at the same time")
+      .description("Amount of proxies to check at the same time. Higher values = faster but more CPU/memory usage.")
+      .defaultValue(50)
+      .minValue(1)
+      .maxValue(1000)
+      .build();
+  public static final IntProperty<SettingsSource.Instance> PROXY_CHECK_TIMEOUT =
+    ImmutableIntProperty.<SettingsSource.Instance>builder()
+      .sourceType(SettingsSource.Instance.INSTANCE)
+      .namespace(NAMESPACE)
+      .key("proxy-check-timeout")
+      .uiName("Proxy check timeout (seconds)")
+      .description("Timeout for each proxy check. Lower values bail faster on dead proxies.")
       .defaultValue(10)
       .minValue(1)
-      .maxValue(Integer.MAX_VALUE)
+      .maxValue(120)
       .build();
 }

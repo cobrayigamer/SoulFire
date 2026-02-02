@@ -66,6 +66,9 @@ public final class CaptchaSolver extends InternalPlugin {
     var response = settingsSource.get(CaptchaSolverSettings.RESPONSE_COMMAND).formatted(captchaText);
     log.debug("Extracted captcha text: {}", captchaText);
     connection.sendChatMessage(response);
+
+    // Mark bot as ready for batch join coordination
+    SynchronizedBatchJoin.markBotReady(connection);
   }
 
   private static void handleImageInput(BotConnection connection, String img) {
@@ -112,6 +115,9 @@ public final class CaptchaSolver extends InternalPlugin {
 
     log.debug("AI response: {}", response);
     connection.sendChatMessage(response);
+
+    // Mark bot as ready for batch join coordination
+    SynchronizedBatchJoin.markBotReady(connection);
   }
 
   private static String toBase64PNG(BufferedImage image) {

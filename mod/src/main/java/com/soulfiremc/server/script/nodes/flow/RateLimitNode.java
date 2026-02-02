@@ -119,4 +119,9 @@ public final class RateLimitNode extends AbstractScriptNode {
   }
 
   private record ConsumeResult(boolean allowed, double tokensRemaining, long retryAfterMs) {}
+
+  /// Clear all rate limit buckets (call on session end to prevent memory leaks)
+  public static void clearAll() {
+    BUCKETS.clear();
+  }
 }

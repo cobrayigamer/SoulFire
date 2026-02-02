@@ -129,4 +129,9 @@ public final class CacheNode extends AbstractScriptNode {
       return expiresAt > 0 && System.currentTimeMillis() > expiresAt;
     }
   }
+
+  /// Clear all caches (call on session end to prevent memory leaks)
+  public static void clearAll() {
+    CACHES.clear();
+  }
 }

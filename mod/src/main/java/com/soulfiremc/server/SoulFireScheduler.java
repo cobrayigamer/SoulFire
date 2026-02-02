@@ -40,16 +40,24 @@ public final class SoulFireScheduler implements Executor {
     .factory());
   private final PriorityQueue<TimedRunnable> executionQueue = new ObjectHeapPriorityQueue<>();
   private final RunnableWrapper runnableWrapper;
-  private boolean blockNewTasks;
-  private boolean isShutdown;
+  private volatile boolean blockNewTasks;
+  private volatile boolean isShutdown;
+  private final ScheduledFuture<?> managementFuture;
 
   public SoulFireScheduler(RunnableWrapper runnableWrapper) {
     this.runnableWrapper = runnableWrapper;
 
-    MANAGEMENT_SERVICE.submit(this::managementTask);
+    // Use scheduleWithFixedDelay instead of recursive scheduling to prevent memory leak
+    managementFuture = MANAGEMENT_SERVICE.scheduleWithFixedDelay(
+      this::managementTask,
+      0,
+      1,
+      TimeUnit.MILLISECONDS
+    );
   }
 
   private void managementTask() {
+    // Check shutdown first - if shutdown, this task will be canceled anyway
     if (isShutdown) {
       return;
     }
@@ -59,8 +67,7 @@ public final class SoulFireScheduler implements Executor {
         schedule(executionQueue.dequeue().runnable());
       }
     }
-
-    MANAGEMENT_SERVICE.schedule(this::managementTask, 1, TimeUnit.MILLISECONDS);
+    // No self-rescheduling needed - using scheduleWithFixedDelay handles this
   }
 
   public void schedule(Runnable command) {
@@ -120,7 +127,16 @@ public final class SoulFireScheduler implements Executor {
   public void shutdown() {
     blockNewTasks = true;
     isShutdown = true;
+
+    // Cancel the management task to release reference from MANAGEMENT_SERVICE
+    if (managementFuture != null) {
+      managementFuture.cancel(false);
+    }
+
     drainQueue();
+
+    // Shutdown the instance executor to release virtual thread resources
+    executor.shutdown();
   }
 
   public CompletableFuture<?> runAsync(Runnable command) {

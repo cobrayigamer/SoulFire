@@ -41,7 +41,6 @@ import net.kyori.adventure.text.Component;
 import net.lenni0451.lambdaevents.EventHandler;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -67,20 +66,25 @@ public final class DisconnectLogger extends InternalPlugin {
       return;
     }
 
-    // usage of synchronized method so that the disconnectMessages set is not modified while being
-    // iterated
     logDisconnectMessage(event.instanceManager(), Component.text("Disconnected with message: ").append(event.message()));
   }
 
-  private static synchronized void logDisconnectMessage(InstanceManager instanceManager, Component message) {
-    var disconnectMessage = instanceManager.metadata().getOrSet(DISCONNECT_MESSAGES, () -> Caffeine.newBuilder()
+  // Removed synchronized - Caffeine cache is thread-safe and uses atomic operations
+  private static void logDisconnectMessage(InstanceManager instanceManager, Component message) {
+    var disconnectMessages = instanceManager.metadata().getOrSet(DISCONNECT_MESSAGES, () -> Caffeine.newBuilder()
       .expireAfterWrite(5, TimeUnit.SECONDS)
       .build());
     var ansiMessage = SoulFireAdventure.TRUE_COLOR_ANSI_SERIALIZER.serialize(message);
 
     var deduplicateAmount = instanceManager.settingsSource().get(DisconnectLoggerSettings.DEDUPLICATE_AMOUNT);
-    int messageCount = Objects.requireNonNull(disconnectMessage.get(ansiMessage, _ -> 0));
-    if (messageCount < deduplicateAmount) {
+
+    // Use Caffeine's asMap() for atomic compute to avoid race conditions
+    var shouldLog = disconnectMessages.asMap().compute(ansiMessage, (key, currentCount) -> {
+      int count = currentCount == null ? 0 : currentCount;
+      return count + 1;
+    }) <= deduplicateAmount;
+
+    if (shouldLog) {
       // Print to remote console (always true color)
       log.atInfo()
         .addKeyValue(SFLogAppender.SF_SKIP_LOCAL_APPENDERS, "true")
@@ -89,7 +93,6 @@ public final class DisconnectLogger extends InternalPlugin {
       log.atInfo()
         .addKeyValue(SFLogAppender.SF_SKIP_PUBLISHING, "true")
         .log("{}", SoulFireAdventure.ANSI_SERIALIZER.serialize(message));
-      disconnectMessage.put(ansiMessage, messageCount + 1);
     }
   }
 
